@@ -1,0 +1,73 @@
+---
+title: "Template Title"
+author: "Niklas Hausmann"
+date: "Today"
+output: pdf_document
+---
+
+# Libraries 
+```{r Libraries,echo=FALSE,message = FALSE,warning = FALSE}
+knitr::opts_chunk$set(echo=FALSE,message = FALSE,warning = FALSE)
+
+{
+  pacman::p_load(
+    here,
+    janitor,
+    tidyverse,
+    cowplot,ggx,
+    patchwork,
+    RColorBrewer) 
+  
+  theme_set(theme_cowplot())
+}
+```
+
+# Data
+
+```{r}
+
+read_plus <- function(flnm) {
+    read_csv(flnm,col_names = FALSE) %>% 
+        mutate(filename = flnm)}
+
+List_A <- list.files(path = here("data"),pattern = c("*data.csv"),recursive = TRUE)
+List_B <- list.files(path = here("data"),pattern = c("*std.csv"),recursive = TRUE)
+
+
+Shells <-
+    map_df(c(List_A,List_B),~read_plus(here("data",.))) %>%
+    mutate(filename=gsub(x=filename,pattern = paste0(here("data"),"/"),replacement = ""),
+           filename=gsub(x=filename,pattern = "PB_AL_",replacement = ""),
+           filename=gsub(x=filename,pattern = "_analyzed_data.csv",replacement = ""),
+           filename=gsub(x=filename,pattern = "_rerun",replacement = ""),
+           filename=gsub(x=filename,pattern = "_RERUN",replacement = ""),
+           filename=gsub(".*/","",filename)) %>%
+  rename(x=X1,y=X2,z=X3,mg_ca=X4,std=X5,rstd=X6) %>%
+# group_by(filename) %>%
+#   mutate(quant999=quantile(mg_ca,0.99)) %>%
+#   filter(mg_ca<quant999) %>%
+# select(-quant999) %>%
+#   ungroup() %>%
+  separate(filename,c("specimen","specimen_data"),sep = "_",remove = FALSE) %>%
+  mutate(specimen=gsub("[[:digit:]]", "",specimen_data)) %>%
+  mutate(res=as.numeric(gsub("[A-Z]", "",specimen_data))) %>% 
+  group_by(specimen_data) %>% 
+  mutate(dist=row_number()*res*0.001) %>% 
+  ungroup()
+```
+
+
+# Plot
+```{r}
+
+Shells %>% 
+  filter(rstd<0.1) %>% 
+  ggplot()+
+  aes(dist,mg_ca,col=rstd) +
+  # geom_path()+
+  geom_point()+
+  # geom_boxplot()
+  facet_wrap(~specimen_data,ncol = 1)
+
+```
+
